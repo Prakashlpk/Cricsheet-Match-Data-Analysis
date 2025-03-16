@@ -49,7 +49,7 @@ def Power_BI_visualization():
 def EDA_Analysis():
     colab_link = "https://colab.research.google.com/drive/1MeApzKbG3MXjXPZcvmo-pZkQgI2m6JPF?usp=sharing"
 
-    if st.button("🚀 Open in Google Colab"):
+    if st.button("Open in Google Colab"):
         st.markdown(f"[Click here to open in Colab]({colab_link})", unsafe_allow_html=True)
 
 def SQL_Queries():
