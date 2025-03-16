@@ -1,0 +1,447 @@
+import pymysql
+
+connection = pymysql.connect(
+    host="gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
+    user="3843tbpvmio3tiw.root",
+    password="BvhwR5z1itdG9CMJ",
+    database="cricsheet",
+    port=4000,
+    ssl={"ca": "D:\\GUVI\\Cricsheet\\isrgrootx1.pem"},
+    connect_timeout=120
+)
+
+cursor = connection.cursor()
+
+import streamlit as st
+import base64
+import pandas as pd
+
+def home():
+    st.title("Cricsheet Match Data Analysis")
+    st.write("""
+    Welcome to the Cricsheet Match Data Analysis Tool! This platform offers interactive insights into cricket matches, including Test, ODI, T20, and IPL formats. 
+    The tool processes match data from Cricsheet, transforming it into structured formats for in-depth analysis and visualization.
+    
+    Key Features:
+    - **Data Extraction**: Extract match data using Python commands to work with JSON files.
+    - **Data Transformation**: Convert raw JSON data into structured tables in SQL for deeper analysis.
+    - **SQL Queries**: Run advanced SQL queries to extract valuable insights from match data, such as top-performing players and teams.
+    - **Exploratory Data Analysis (EDA)**: Perform detailed data analysis using Python libraries such as matplotlib, seaborn, and plotly to uncover patterns and trends.
+    - **Visualization**: Explore interactive dashboards built in Power BI for visualizing match trends, player stats, and team comparisons.
+
+    The data analysis focuses on:
+    - Player performance (batting, bowling) across formats.
+    - Team comparisons and match outcomes.
+    - Detailed win/loss analysis.
+    - Key player statistics like runs, wickets, and boundaries.
+
+    Start exploring to dive deep into the exciting world of cricket data and enhance your understanding of player and team dynamics!
+    """)
+
+def Power_BI_visualization():
+    uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
+    if uploaded_file is not None:
+        base64_pdf = base64.b64encode(uploaded_file.read()).decode("utf-8")
+    
+        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="700" height="900" type="application/pdf"></iframe>'
+        st.markdown(pdf_display, unsafe_allow_html=True)
+
+def EDA_Analysis():
+    colab_link = "https://colab.research.google.com/drive/1MeApzKbG3MXjXPZcvmo-pZkQgI2m6JPF?usp=sharing"
+
+    if st.button("🚀 Open in Google Colab"):
+        st.markdown(f"[Click here to open in Colab]({colab_link})", unsafe_allow_html=True)
+
+def SQL_Queries():
+    if st.button("Queries"):
+      st.session_state.read_clicked = True  
+      st.session_state.selected_option = None
+
+    if "read_clicked" not in st.session_state:
+       st.session_state.read_clicked = False 
+    if "selected_option" not in st.session_state:
+       st.session_state.selected_option = None
+
+    if st.session_state.read_clicked:
+        option = st.selectbox("Select", ["Select an option","1.Modes of Dismissal for Rohit Sharma in ODIs", "2.India's ODI Winning Trend: Stronger While Batting First or Chasing?",
+        "3.Analysis of CA Pujara's Total Runs and Balls Faced in Test Cricket","4.Key Partnerships in Test Cricket","5.Evaluating Bowler Consistency in Test Cricket",
+        "6.Virat Kohli's Performance Against Australia's Frontline Bowlers in Test Cricket","7.A Comprehensive Overview of RG Sharma's Centuries Across All Formats",
+        "8.Highest Wicket-Taker Across All Cricket Formats","9.T20 2024: Win Percentage and Match Count for Each Team",
+        "10.T20 2024: Impact of Catches and Run-Outs on Winning Percentage","11.Batsmen Performing Under Pressure in Death Overs in T20 2024 time",
+        "12.Bowlers Performing Under Pressure in Death Overs in T20 2024","13.Win Percentage in IPL 2024","14.Toss-Win Impact in IPL 2024",
+        "15.T20 2024 IPL: Win Percentage Analysis Based on Catches and Run-Outs",
+        "16.Player Consistency Across Formats","17.Bowlers Conceding the Most Extras Across All Formats",
+        "18.T20 2024: Six-Hitting Performance of Each Batter","19.Teams scoring most runs in power play",
+        "20.Top 10 all rounders in IPL 2024"])
+        if option == "Select an option":
+            st.session_state.selected_option = None
+        else:
+            st.session_state.selected_option = option
+
+        if st.session_state.selected_option:
+            if st.session_state.selected_option == "1.Modes of Dismissal for Rohit Sharma in ODIs":
+                cursor.execute("""SELECT match_id, match_type, date,venue,bowler, dismissal_kind
+                FROM ODI_TABLE
+                WHERE batter = 'RG Sharma'
+                AND dismissal_kind IN ('caught', 'bowled', 'caught and bowled', 'lbw',
+                        'run out', 'stumped', 'retired hurt', 'timed out');""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option =="2.India's ODI Winning Trend: Stronger While Batting First or Chasing?":
+                cursor.execute("""WITH match_counts AS (
+                SELECT
+                COUNT(DISTINCT CASE
+                WHEN toss_decision = 'bat' AND result = 'India' THEN match_number
+                END) AS first_batting,
+                COUNT(DISTINCT CASE
+                WHEN toss_decision = 'field' AND result = 'India' THEN match_number
+                END) AS chasing
+                FROM ODI_table
+                WHERE teams LIKE '%India%'
+                AND result = 'India'
+                )
+               SELECT
+                SUM(first_batting) AS total_first_batting,
+                SUM(chasing) AS total_chasing,
+                CASE
+                WHEN SUM(first_batting) > SUM(chasing) THEN 'India won more matches batting first'
+                WHEN SUM(first_batting) < SUM(chasing) THEN 'India won more matches chasing'
+                ELSE 'India won equally in both scenarios'
+                END AS conclusion
+                FROM match_counts;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option =="3.Analysis of CA Pujara's Total Runs and Balls Faced in Test Cricket":
+                cursor.execute("""SELECT
+                match_number,
+                batter AS player,
+                SUM(balls_faced) AS total_balls_faced,
+                SUM(batter_runs) AS total_runs_scored
+                FROM Test_table
+                WHERE batter = 'CA Pujara'
+                GROUP BY match_number, batter
+                ORDER BY match_number;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option =="4.Key Partnerships in Test Cricket":
+                cursor.execute("""SELECT
+                match_number,
+                CONCAT(batter, ' & ', non_striker) AS partnership,
+                SUM(total_runs) AS partnership_runs
+                FROM Test_table
+                WHERE batter IS NOT NULL
+                AND non_striker IS NOT NULL
+                GROUP BY match_number, batter, non_striker
+                ORDER BY match_number, partnership_runs DESC;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option =="5.Evaluating Bowler Consistency in Test Cricket":
+                cursor.execute("""SELECT
+                bowler,
+                COUNT(DISTINCT match_id) AS matches_played,
+                SUM(wickets) AS total_wickets,
+                ROUND(SUM(balls_bowled) / 6, 2) AS total_overs_bowled,
+                ROUND(SUM(runs_conceded) / (SUM(balls_bowled) / 6), 2) AS economy_rate,
+                ROUND(SUM(runs_conceded) / NULLIF(SUM(wickets), 0), 2) AS bowling_average,
+                ROUND(SUM(balls_bowled) / NULLIF(SUM(wickets), 0), 2) AS strike_rate
+                FROM (
+                SELECT
+                match_id,
+                bowler,
+                SUM(wickets) AS wickets,
+                SUM(balls_bowled) AS balls_bowled,
+                SUM(total_runs) AS runs_conceded
+                FROM Test_table
+                WHERE bowler IS NOT NULL
+                GROUP BY match_id, bowler
+                ) AS bowler_stats
+                GROUP BY bowler
+                ORDER BY total_wickets DESC, economy_rate ASC;"""
+                )
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option =="6.Virat Kohli's Performance Against Australia's Frontline Bowlers in Test Cricket":
+                cursor.execute("""SELECT
+                batter,
+                bowler,
+                SUM(batter_runs) AS total_runs_scored,
+                SUM(balls_faced) AS total_balls_faced,
+                SUM(total_runs) AS total_runs_conceded,
+                SUM(wickets) AS total_wickets_taken
+                FROM Test_table
+                WHERE batter = 'V Kohli'
+                AND bowler IN ('PJ Cummins', 'MA Starc', 'JR Hazlewood', 'NM Lyon')
+                GROUP BY batter, bowler
+                ORDER BY bowler;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option == "7.A Comprehensive Overview of RG Sharma's Centuries Across All Formats":
+                cursor.execute("""SELECT
+                (SELECT COUNT(*)
+                FROM (
+                SELECT SUM(batter_runs) AS total_runs
+                FROM ODI_TABLE
+                WHERE batter = 'RG Sharma'
+                GROUP BY match_id
+                HAVING total_runs >= 100
+                ) AS centuries_odis) AS total_centuries_odis,
+                (SELECT COUNT(*)
+                FROM (
+                SELECT SUM(batter_runs) AS total_runs
+                FROM TEST_TABLE
+                WHERE batter = 'RG Sharma'
+                GROUP BY match_id
+                HAVING total_runs >= 100
+                ) AS centuries_tests) AS total_centuries_tests,
+                (SELECT COUNT(*)
+                FROM (
+                SELECT SUM(batter_runs) AS total_runs
+                FROM T20_TABLE
+                WHERE batter = 'RG Sharma'
+                GROUP BY match_id
+                HAVING total_runs >= 100
+                ) AS centuries_t20s) AS total_centuries_t20s,
+                (SELECT COUNT(*)
+                FROM (
+                SELECT SUM(batter_runs) AS total_runs
+                FROM IPL_TABLE
+                WHERE batter = 'RG Sharma'
+                GROUP BY match_id
+                HAVING total_runs >= 100
+                ) AS centuries_ipl) AS total_centuries_ipl""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            if st.session_state.selected_option == "8.Highest Wicket-Taker Across All Cricket Formats":
+                cursor.execute("""SELECT
+                bowler,
+                SUM(wickets) AS total_wickets
+                FROM (
+                SELECT bowler, SUM(wickets) AS wickets
+                FROM ODI_TABLE
+                GROUP BY bowler
+                UNION ALL
+                SELECT bowler, SUM(wickets) AS wickets
+                FROM TEST_TABLE
+                GROUP BY bowler
+                UNION ALL
+                SELECT bowler, SUM(wickets) AS wickets
+                FROM T20_TABLE
+                GROUP BY bowler
+                UNION ALL
+                SELECT bowler, SUM(wickets) AS wickets
+                FROM IPL_TABLE
+                GROUP BY bowler
+                ) AS all_bowlers
+                GROUP BY bowler
+                ORDER BY total_wickets DESC
+                LIMIT 1;
+                """)
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option == "9.T20 2024: Win Percentage and Match Count for Each Team":
+                cursor.execute("""SELECT
+                team,
+                (COUNT(DISTINCT CASE WHEN result = team THEN match_number END) * 100.0) /
+                (SELECT COUNT(DISTINCT match_number) FROM T20_TABLE WHERE team = t.team) AS win_percentage,
+                (SELECT COUNT(DISTINCT match_number) FROM T20_TABLE WHERE team = t.team) AS total_matches
+                FROM T20_TABLE t
+                GROUP BY team
+                ORDER BY win_percentage DESC;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            if st.session_state.selected_option == "10.T20 2024: Impact of Catches and Run-Outs on Winning Percentage":
+                cursor.execute("""SELECT
+                team,
+                SUM(CASE WHEN dismissal_kind = 'caught' THEN 1 ELSE 0 END) AS total_catches,
+                SUM(CASE WHEN dismissal_kind = 'run out' THEN 1 ELSE 0 END) AS total_run_outs,
+                COUNT(DISTINCT match_number) AS total_matches,
+                (COUNT(DISTINCT CASE WHEN result = team THEN match_number END) * 100.0) /
+                (SELECT COUNT(DISTINCT match_number) FROM T20_TABLE WHERE team = t.team) AS win_percentage
+                FROM T20_TABLE t
+                GROUP BY team
+                ORDER BY win_percentage DESC;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            if st.session_state.selected_option =="11.Batsmen Performing Under Pressure in Death Overs in T20 2024 time":
+                cursor.execute("""SELECT
+                batter,
+                COUNT(DISTINCT match_number) AS matches_played,
+                SUM(batter_runs) AS total_runs_in_death_overs,
+                SUM(balls_faced) AS total_balls_faced,
+                (SUM(batter_runs) * 100.0 / NULLIF(SUM(balls_faced), 0)) AS strike_rate,
+                COUNT(CASE WHEN dismissal_kind IS NULL THEN 1 END) AS not_out_in_death_overs
+                FROM T20_TABLE
+                WHERE overs BETWEEN 16 AND 20
+                GROUP BY batter
+                ORDER BY total_runs_in_death_overs DESC, strike_rate DESC;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option == "12.Bowlers Performing Under Pressure in Death Overs in T20 2024":
+                cursor.execute("""SELECT
+                bowler,
+                COUNT(DISTINCT match_number) AS matches_played,
+                SUM(wickets) AS total_wickets_in_death_overs,
+                SUM(balls_bowled) AS total_balls_bowled,
+                (SUM(total_runs) * 6.0 / NULLIF(SUM(balls_bowled), 0)) AS economy_rate
+                FROM T20_TABLE
+                WHERE overs BETWEEN 16 AND 20
+                GROUP BY bowler
+                ORDER BY total_wickets_in_death_overs DESC, economy_rate ASC;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option == "13.Win Percentage in IPL 2024":
+                cursor.execute("""SELECT
+                team,
+                COUNT(DISTINCT match_number) AS matches_played,
+                COUNT(DISTINCT CASE WHEN result = team THEN match_number END) AS wins,
+                (COUNT(DISTINCT CASE WHEN result = team THEN match_number END) * 100.0 /
+                COUNT(DISTINCT match_number)) AS win_percentage
+                FROM IPL_TABLE
+                WHERE season = 2024
+                GROUP BY team
+                ORDER BY win_percentage DESC;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option == "14.Toss-Win Impact in IPL 2024":
+                cursor.execute("""SELECT
+                toss_winner AS team,
+                COUNT(DISTINCT match_number) AS toss_wins,
+                COUNT(DISTINCT CASE WHEN toss_winner = result THEN match_number END) AS matches_won_after_toss,
+                (COUNT(DISTINCT CASE WHEN toss_winner = result THEN match_number END) * 100.0 /
+                COUNT(DISTINCT match_number)) AS toss_win_success_rate
+                FROM IPL_TABLE
+                WHERE season = 2024
+                GROUP BY toss_winner
+                ORDER BY toss_win_success_rate DESC;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option == "15.T20 2024 IPL: Win Percentage Analysis Based on Catches and Run-Outs":
+                cursor.execute("""SELECT
+                team,
+                COUNT(DISTINCT match_number) AS matches_played,
+                COUNT(CASE WHEN dismissal_kind = 'caught' THEN 1 END) AS catches,
+                COUNT(CASE WHEN dismissal_kind = 'run out' THEN 1 END) AS run_outs,
+                COUNT(DISTINCT CASE WHEN result = team THEN match_number END) AS wins,
+                (COUNT(DISTINCT CASE WHEN result = team THEN match_number END) * 100.0 /
+                COUNT(DISTINCT match_number)) AS win_percentage
+                FROM IPL_TABLE
+                WHERE season = 2024
+                GROUP BY team
+                ORDER BY win_percentage DESC;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option == "16.Player Consistency Across Formats":
+                cursor.execute("""SELECT
+                batter,
+                SUM(batter_runs) AS total_runs,
+                COUNT(DISTINCT match_number) AS matches_played,
+                (SUM(batter_runs) * 100.0 / NULLIF(SUM(balls_faced), 0)) AS strike_rate
+                FROM (
+                SELECT batter, match_number, batter_runs, balls_faced FROM ODI_TABLE
+                UNION ALL
+                SELECT batter, match_number, batter_runs, balls_faced FROM TEST_TABLE
+                UNION ALL
+                SELECT batter, match_number, batter_runs, balls_faced FROM T20_TABLE
+                UNION ALL
+                SELECT batter, match_number, batter_runs, balls_faced FROM IPL_TABLE
+                ) AS all_matches
+                GROUP BY batter
+                ORDER BY total_runs DESC, strike_rate DESC;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option == "17.Bowlers Conceding the Most Extras Across All Formats":
+                cursor.execute("""SELECT
+                bowler,
+                SUM(wides) AS total_wides,
+                SUM(noballs) AS total_noballs,
+                SUM(legbyes) AS total_legbyes,
+                SUM(wides + noballs + legbyes) AS total_extras,
+                COUNT(DISTINCT match_number) AS matches_played
+                FROM (
+                SELECT bowler, match_number, wides, noballs, legbyes FROM ODI_TABLE
+                UNION ALL
+                SELECT bowler, match_number, wides, noballs, legbyes FROM TEST_TABLE
+                UNION ALL
+                SELECT bowler, match_number, wides, noballs, legbyes FROM T20_TABLE
+                UNION ALL
+                SELECT bowler, match_number, wides, noballs, legbyes FROM IPL_TABLE
+                ) AS all_matches
+                GROUP BY bowler
+                ORDER BY total_extras DESC;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option == "18.T20 2024: Six-Hitting Performance of Each Batter":
+                cursor.execute("""SELECT
+                batter,
+                SUM(CASE WHEN batter_runs = 6 THEN 1 ELSE 0 END) AS total_sixes,
+                COUNT(DISTINCT match_number) AS matches_played
+                FROM T20_TABLE
+                GROUP BY batter
+                ORDER BY total_sixes DESC
+                LIMIT 20;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option == "19.Teams scoring most runs in power play": 
+                cursor.execute("""SELECT
+                team,
+                SUM(batter_runs) AS total_runs_in_powerplay,
+                COUNT(DISTINCT match_number) AS matches_played
+                FROM IPL_TABLE
+                WHERE overs BETWEEN 1 AND 5
+                GROUP BY team
+                ORDER BY total_runs_in_powerplay DESC
+                LIMIT 10;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+            elif st.session_state.selected_option == "20.Top 10 all rounders in IPL 2024":
+                cursor.execute("""SELECT
+                player_name,
+                SUM(batter_runs) AS total_batting_runs,
+                SUM(wickets) AS total_wickets,
+                SUM(balls_bowled) AS total_balls_bowled,
+                SUM(batter_runs) + SUM(wickets * 10) AS all_rounder_score
+                FROM (
+                SELECT batter AS player_name, batter_runs, 0 AS wickets, 0 AS balls_bowled FROM IPL_TABLE
+                UNION ALL
+                SELECT bowler AS player_name, 0 AS batter_runs, wickets, balls_bowled FROM IPL_TABLE
+                ) AS combined_performance
+                GROUP BY player_name
+                HAVING SUM(balls_bowled) > 0
+                ORDER BY all_rounder_score DESC
+                LIMIT 10;""")
+                results = cursor.fetchall()
+                df = pd.DataFrame(results, columns=[i[0] for i in cursor.description]) 
+                st.write(df)
+
+
+page = st.sidebar.selectbox("Navigation", ["Home","Power_BI_visualization","EDA_Analysis", "SQL_Queries"])
+
+if page == "Home":
+    home()
+elif page == "Power_BI_visualization":
+    Power_BI_visualization()
+elif page == "EDA_Analysis":
+    EDA_Analysis()
+elif page == "SQL_Queries":
+   SQL_Queries()
+            
+

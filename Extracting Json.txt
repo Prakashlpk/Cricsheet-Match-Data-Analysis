@@ -1,0 +1,104 @@
+          					EXTRACTING JSON FILES 
+
+import os
+import json
+import pandas as pd
+import numpy as np
+
+temp = r"D:\GUVI\Cricsheet\odis_json"
+
+data_list = []
+
+if os.path.exists(temp):
+    for i in os.listdir(temp):
+        if i.endswith(".json"):
+            file_path = os.path.join(temp, i)
+            
+            
+            with open(file_path, "r") as file:
+                data = json.load(file)
+            
+            
+            info = data.get("info", {})
+            static_data = {  
+                "city": info.get("city", ""),
+                "date": info.get("dates", [None])[0],
+                "event": info.get("event", {}).get("name", ""),
+                "match_number": info.get("event", {}).get("match_number", ""),
+                "match_type": info.get("match_type", ""),
+                "venue": info.get("venue", ""),
+                "match_referees": ", ".join(info.get("officials", {}).get("match_referees", [])),
+                "tv_umpires": ", ".join(info.get("officials", {}).get("tv_umpires", [])),
+                "reserve_umpires": ", ".join(info.get("officials", {}).get("reserve_umpires", [])),
+                "result": info.get("outcome", {}).get("winner", info.get("outcome", {}).get("result", "Unknown")),
+                "teams": " vs ".join(info.get("teams", [])),
+                "toss_winner": info.get("toss", {}).get("winner", ""),
+                "toss_decision": info.get("toss", {}).get("decision", ""),
+                "match_id": data.get("meta", {}).get("data_version", ""),
+            }
+            
+            event_name = static_data["event"]
+            if event_name == "ICC Cricket World Cup" and static_data["date"] and "2023" in static_data["date"]:
+                
+                for inning_number, inning in enumerate(data.get("innings", []), start=1):
+                    team = inning.get("team", "")
+                    for j in inning.get("overs", []):
+                        over_number = j.get("over", 0)
+                        for delivery in j.get("deliveries", []):
+                            dynamic_data = {
+                                "team": team,
+                                "over": over_number,
+                                "batter": delivery.get("batter", ""),
+                                "bowler": delivery.get("bowler", ""),
+                                "non_striker": delivery.get("non_striker", ""),
+                                "batter_runs": delivery.get("runs", {}).get("batter", 0),
+                                "extras": delivery.get("runs", {}).get("extras", 0),
+                                "total_runs": delivery.get("runs", {}).get("total", 0),
+                                "dismissal_kind": delivery.get("dismissal_kind", ""),
+                                "balls_faced": 1,  
+                                "balls_bowled": 1,
+                                "wickets": 0,
+                                "wides": delivery.get("extras", {}).get("wides", 0),
+                                "noballs": delivery.get("extras", {}).get("noballs", 0),
+                                "legbyes": delivery.get("extras", {}).get("legbyes", 0),
+                                "inning_number": inning_number,
+                            }
+                            
+                            if "wickets" in delivery:
+                                dynamic_data["wickets"] = len(delivery["wickets"]) 
+                                for wicket in delivery["wickets"]:
+                                    fielders_names = ", ".join([f.get("name", "") for f in wicket.get("fielders", []) if f.get("name", "")])
+                                    dynamic_data.update({
+                                        "dismissal_kind": wicket.get("kind", ""),
+                                        "dismissal_player": wicket.get("player_out", ""),
+                                        "dismissal_fielders": fielders_names,
+                                    })
+
+                            combined_data = {**static_data, **dynamic_data}
+                            data_list.append(combined_data)
+
+    
+    df1 = pd.DataFrame(data_list)
+
+    string_columns = [
+        "city", "event", "match_referees", "tv_umpires", "reserve_umpires",
+        "result", "dismissal_kind", "dismissal_player", "dismissal_fielders"
+    ]
+    integer_columns = ["match_number"]
+
+    df1[string_columns] = df1[string_columns].replace("", np.nan)
+    df1[integer_columns] = df1[integer_columns].replace("", np.nan)
+
+    df1[string_columns] = df1[string_columns].fillna("Unknown")
+    df1[integer_columns] = df1[integer_columns].fillna(0).astype(int)
+
+    df1.to_csv("ODI_data_new.csv", index=False, na_rep="NULL")
+
+    print("Data extraction complete! CSV file saved.")
+else:
+    print(f"Folder not found: {temp}")
+
+						
+
+
+						

@@ -1,0 +1,69 @@
+import mysql.connector
+import pandas as pd
+connection = mysql.connector.connect(host="gateway01.ap-southeast-1.prod.aws.tidbcloud.com", user="3843tbpvmio3tiw.root",
+port=4000,password="BvhwR5z1itdG9CMJ", database="cricsheet", allow_local_infile=True,
+connection_timeout=3600)
+cursor = connection.cursor()
+
+TABLE = '''CREATE TABLE IF NOT EXISTS ODI_TABLE (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    city VARCHAR(200),
+    date DATE,
+    event VARCHAR(300),
+    match_number INT,
+    match_type VARCHAR(100),
+    venue VARCHAR(200),
+    match_referees VARCHAR(300),
+    tv_umpires VARCHAR(300),
+    reserve_umpires VARCHAR(300),
+    result VARCHAR(100),
+    teams VARCHAR(200),
+    toss_winner VARCHAR(100),
+    toss_decision VARCHAR(100),
+    match_id VARCHAR(50),     
+    team VARCHAR(100),
+    overs INT,
+    batter VARCHAR(100),
+    bowler VARCHAR(100),
+    non_striker VARCHAR(100),
+    batter_runs INT,
+    extras INT,
+    total_runs INT,
+    dismissal_kind VARCHAR(100),
+    balls_faced INT,
+    balls_bowled INT,
+    wickets INT,
+    wides INT,
+    noballs INT,
+    legbyes INT,
+    inning_number INT,
+    dismissal_player VARCHAR(100),
+    dismissal_fielders VARCHAR(200)
+);'''
+cursor.execute(TABLE)
+connection.commit()
+
+
+INSERT_QUERY = """INSERT INTO ODI_TABLE (
+        city, date, event, match_number, match_type, venue, match_referees,
+        tv_umpires, reserve_umpires, result, teams, toss_winner, toss_decision, match_id,
+        team, overs, batter, bowler, non_striker, batter_runs, extras, total_runs,
+        dismissal_kind, balls_faced, balls_bowled, wickets, wides, noballs, legbyes,
+        inning_number, dismissal_player, dismissal_fielders
+    ) VALUES (
+        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,%s, %s
+    );"""
+
+df = pd.read_csv("ODI_data_new.csv", low_memory=False)
+
+df["date"] = pd.to_datetime(df["date"], errors='coerce').dt.date
+
+list_tuples = [tuple(row) for row in df.itertuples(index=False, name=None)]
+batch_size = 1000
+for i in range(0, len(list_tuples), batch_size):
+        batch = list_tuples[i:i + batch_size]
+        cursor.executemany(INSERT_QUERY, batch)
+        connection.commit()
+
+cursor.close()
+connection.close()
